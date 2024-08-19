@@ -1,0 +1,157 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1724103283931" id="c0a8380a916c106681916c9054db00ad" language="beanshell" name="CreateDBOp - Copy1" type="JDBCOperationProvisioning">
+  <Description>This rule is used by the JDBC connector to do
+        provisioning of the data .</Description>
+  <Signature returnType="ProvisioningResult">
+    <Inputs>
+      <Argument type="application">
+        <Description>
+The application whose data file is being
+              processed.
+</Description>
+      </Argument>
+      <Argument type="schema">
+        <Description>
+The Schema currently in use.
+</Description>
+      </Argument>
+      <Argument type="connection">
+        <Description>
+A connection object to connect to database.
+</Description>
+      </Argument>
+      <Argument type="plan">
+        <Description>
+The ProvisioningPlan created against the JDBC
+              application.
+</Description>
+      </Argument>
+      <Argument type="request">
+        <Description>
+The ProvisioningRequest created against the
+              JDBC application.
+</Description>
+      </Argument>
+    </Inputs>
+    <Returns>
+      <Argument type="result">
+        <Description>
+A Provisioning Result object is desirable to
+              return the status.IT can be a new object or part of
+              Provisioning Plan
+</Description>
+      </Argument>
+    </Returns>
+  </Signature>
+  <Source>
+
+/*******
+ *                                                                   *
+ * Generated: Fri Jan 19 08:22:45 EST 2024                           *
+ * Rule: Provisioning Rule Template For Operations                   *
+ * Description: Provisioning Rule Template For Operations            *
+ * Inputs:                                                           *
+ *     application - The application whose data file is being        *
+ *               processed.                                          *
+ *     schema - The Schema currently in use.                         *
+ *     connection - A connection object to connect to database.      *
+ *     plan - The ProvisioningPlan created against the JDBC          *
+ *               application.                                        *
+ *     request - The ProvisioningRequest created against the         *
+ *               JDBC application.                                   *
+ * Returns:                                                          *
+ *     result - A Provisioning Result object is desirable to         *
+ *               return the status.IT can be a new object or part of *
+ *               Provisioning Plan                                   *
+ ******/
+
+import org.apache.log4j.Logger;
+import sailpoint.object.ProvisioningPlan;
+import sailpoint.object.ProvisioningPlan.AccountRequest;
+import sailpoint.object.ProvisioningPlan.AttributeRequest;
+import sailpoint.object.ProvisioningResult;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+
+String createQuery="INSERT INTO wintelUser(dbID,empID,userName,Inactive) VALUES(?,?,?,?)";
+String searchQuery="SELECT * FROM wintelUser WHERE dbID=?";
+String appName="WintelApp";
+boolean accountCreationRequired=true;
+
+Logger logger=Logger.getLogger("com.identityclasses.rules");
+logger.info("Original Plan:: \n"+plan.toXml());
+logger.info("Operation detected:: "+plan.getAccountRequest(appName).getOperation());
+
+ProvisioningResult result=new ProvisioningResult();
+
+try
+{
+	PreparedStatement ps=connection.prepareStatement(createQuery);
+	PreparedStatement searchPS=connection.prepareStatement(searchQuery);
+	
+	if(plan.getAccountRequest(appName).getOperation().equals(ProvisioningPlan.AccountRequest.Operation.Create))
+		{
+			logger.info("Operation detected as Create.");	
+			AccountRequest accReq=plan.getAccountRequest(appName);
+			
+			String nativeIdentity=accReq.getNativeIdentity();
+			searchPS.setNString(1,nativeIdentity);
+			ResultSet rs=searchPS.executeQuery();
+			
+			while(rs.next())
+			{
+				accountCreationRequired=false;
+			}
+			List&lt;AttributeRequest> attributes=accReq.getAttributeRequests();
+				ps.setString(1,nativeIdentity);
+				ps.setString(4,"False");
+				for(int i=0; i&lt;attributes.size(); i++)
+				{
+					AttributeRequest attribute=attributes.get(i);
+					
+					if(attribute.getName().equalsIgnoreCase("empID"))
+					{
+						logger.info("Attribute Name:: "+attribute.getName());
+						logger.info("Attribute Value:: "+attribute.getValue());
+						ps.setString(2,attribute.getValue().toString());
+					}
+					else if(attribute.getName().equalsIgnoreCase("userName"))
+					{
+						logger.info("Attribute Name:: "+attribute.getName());
+						logger.info("Attribute Value:: "+attribute.getValue());
+						ps.setString(3,attribute.getValue().toString());
+					}
+					if(accountCreationRequired)
+					{
+						logger.info("User account is not found. Hence creating a new account.");
+						ps.execute();
+						logger.info("Account created successfully for user:: "+plan.getNativeIdentity());
+					}
+					else
+					{
+						logger.info("User account already exists. Hence skipping account creation.");
+					}
+				}
+				result.setStatus(ProvisioningResult.STATUS_COMMITTED);
+				return result;
+		}
+}
+catch(Exception e)
+{
+	logger.error("Operation Failed:: "+e.getMessage());
+	result.setStatus(ProvisioningResult.STATUS_FAILED);
+	return result;
+}
+finally
+{
+	try{
+	connection.close();
+	}
+	catch(Exception e){
+	}
+}
+
+
+</Source>
+</Rule>
