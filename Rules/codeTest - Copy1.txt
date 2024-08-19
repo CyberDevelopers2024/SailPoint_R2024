@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="codeTest - Copy1">
+  <Source>
+  import sailpoint.object.Identity;
+  String name="Adam.Kennedy";
+  Identity identity=context.getObjectByName(Identity.class, name);
+  String department=identity.getStringAttribute("department"); // This returns string
+  String location=(String)identity.getAttribute("location"); // This returns as object and needs to be type cast to string
+  return "Department::"+department+" "+"Location::"+location;
+ </Source>
+</Rule>
